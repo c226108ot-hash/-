@@ -654,7 +654,15 @@ function renderMemoryTable(){
     else if(c.type==='table') back.innerHTML = makeTableHTML(c.a,c.b);
     inner.appendChild(front); inner.appendChild(back); wrap.appendChild(inner); grid.appendChild(wrap);
 
-    wrap.addEventListener('click', ()=> {
+    // 内部要素がクリックされたときにイベントが親に伝播するのを防ぐ
+    // （表や canvas などを後から挿入する場合も同様に stopPropagation を付ける）
+    front.addEventListener('click', (e)=>{ e.stopPropagation(); });
+    back.addEventListener('click',  (e)=>{ e.stopPropagation(); });
+
+    // 親要素のクリックは必ずイベントを受けて処理（伝播を止める）
+    wrap.addEventListener('click', (e)=> {
+      e.preventDefault();
+      e.stopPropagation();
       if(disableClicks) return;
       if(wrap.classList.contains('matched') || wrap.classList.contains('flipped')) return;
 
@@ -669,7 +677,6 @@ function renderMemoryTable(){
   });
   if(cardArea) cardArea.appendChild(grid);
 }
-
 function onCardClickedMemory(idx){
   if(disableClicks) return;
   const card = document.querySelector(`.card[data-index='${idx}']`);
