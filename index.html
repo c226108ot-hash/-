@@ -1,18 +1,24 @@
-
-
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>一次関数トランプ（神経衰弱、ババ抜き版）</title>
-<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#001428">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
+
 <style>
+  :root{ --bg1:#001428; --bg2:#00263e; --panel:#021a2d; --accent:#ffd966; }
+  html,body{height:100%; margin:0; font-family:"Segoe UI",sans-serif; background:linear-gradient(var(--bg1),var(--bg2)); color:#fff;}
+  h1{font-size:40px; font-weight:800; text-align:center; margin:28px 0;}
+  .container-box{background:var(--panel); padding:20px 26px; border-radius:14px; max-width: 90%; width: auto; box-shadow:0 0 8px #0007; margin:0 auto;}
+  button{padding:8px 10px;border-radius:6px;border:none;cursor:pointer;background:#fff;color:#000;}
+  input[type=number]{padding:6px;border-radius:6px;border:none;width:80px;}
+  .small{font-size:13px;opacity:.9}
+  /* ===== 以下 CSS すべて元ファイルそのまま ===== */
+
   :root{ --bg1:#001428; --bg2:#00263e; --panel:#021a2d; --accent:#ffd966; }
   html,body{height:100%; margin:0; font-family:"Segoe UI",sans-serif; background:linear-gradient(var(--bg1),var(--bg2)); color:#fff;}
   h1{font-size:40px; font-weight:800; text-align:center; margin:28px 0;}
@@ -643,40 +649,53 @@ function startMemory(pairCount){
 }
 function renderMemoryTable(){
   if(cardArea) cardArea.innerHTML='';
-  const grid = document.createElement('div'); grid.className='card-grid';
+  const grid = document.createElement('div');
+  grid.className='card-grid';
+
   deckCards.forEach((c,idx)=>{
-    const wrap=document.createElement('div'); wrap.className='card'; wrap.dataset.index=idx;
-    const inner=document.createElement('div'); inner.className='card-inner';
-    const front=document.createElement('div'); front.className='face front'; front.textContent='?';
-    const back=document.createElement('div'); back.className='face back';
-    if(c.type==='formula') back.innerHTML=`<div style="font-weight:800">${formatEq(c.a,c.b)}</div>`;
-    else if(c.type==='detail') back.innerHTML=`a=${c.a}<br>b=${c.b}`;
-    else if(c.type==='graph') { back.innerHTML=`<div style="font-weight:700">📈 グラフ</div>`; }
-    else if(c.type==='table') back.innerHTML = makeTableHTML(c.a,c.b);
-    inner.appendChild(front); inner.appendChild(back); wrap.appendChild(inner); grid.appendChild(wrap);
+    const wrap = document.createElement('div');
+    wrap.className='card';
+    wrap.dataset.index = idx;
 
-    // 内部要素がクリックされたときにイベントが親に伝播するのを防ぐ
-    // （表や canvas などを後から挿入する場合も同様に stopPropagation を付ける）
-    front.addEventListener('click', (e)=>{ e.stopPropagation(); });
-    back.addEventListener('click',  (e)=>{ e.stopPropagation(); });
+    const inner = document.createElement('div');
+    inner.className='card-inner';
 
-    // 親要素のクリックは必ずイベントを受けて処理（伝播を止める）
-    wrap.addEventListener('click', (e)=> {
-      e.preventDefault();
-      e.stopPropagation();
+    const front = document.createElement('div');
+    front.className='face front';
+    front.textContent='?';
+
+    const back = document.createElement('div');
+    back.className='face back';
+
+    if(c.type==='formula'){
+      back.innerHTML = `<div style="font-weight:800">${formatEq(c.a,c.b)}</div>`;
+    } else if(c.type==='graph'){
+      back.innerHTML = `<div style="font-weight:700">📈 グラフ</div>`;
+    } else if(c.type==='table'){
+      back.innerHTML = makeTableHTML(c.a,c.b);
+    }
+
+    inner.appendChild(front);
+    inner.appendChild(back);
+    wrap.appendChild(inner);
+    grid.appendChild(wrap);
+
+    // ✅ クリックは card（wrap）だけで受ける
+    wrap.addEventListener('click', ()=>{
       if(disableClicks) return;
-      if(wrap.classList.contains('matched') || wrap.classList.contains('flipped')) return;
+      if(wrap.classList.contains('matched')) return;
+      if(wrap.classList.contains('flipped')) return;
 
-      // 共通のカード進行ロジック
       onCardClickedMemory(idx);
 
-      // 表示だけ特別（既存の大表示処理はそのまま）
+      // グラフカードだけ大表示（既存仕様）
       if(c.type === 'graph'){
         showGraphLarge(c);
       }
     });
   });
-  if(cardArea) cardArea.appendChild(grid);
+
+  cardArea.appendChild(grid);
 }
 function onCardClickedMemory(idx){
   if(disableClicks) return;
@@ -1499,41 +1518,66 @@ function showMemoryResult(playerCount, cpuCount) {
 </div>
 
 <script>
-/* ==== 統合モーダル制御スクリプト（既存コードを壊さずオーバーライド） ==== */
+
+/* ==== 統合モーダル制御スクリプト（修正版） ==== */
 (function(){
-  // If cpuWaitFlag is already defined in page, reuse it; otherwise create it.
   if (typeof window.cpuWaitFlag === 'undefined') window.cpuWaitFlag = false;
 
-  const largeModal = document.getElementById('largeCardModal');
-  const largeBody = document.getElementById('largeCardBody');
-  const largeTitle = document.getElementById('largeCardTitle');
-  const largeClose = document.getElementById('largeClose');
-  const largeZoomIn = document.getElementById('largeZoomIn');
+  const largeModal   = document.getElementById('largeCardModal');
+  const largeBody    = document.getElementById('largeCardBody');
+  const largeTitle   = document.getElementById('largeCardTitle');
+  const largeClose   = document.getElementById('largeClose');
+  const largeZoomIn  = document.getElementById('largeZoomIn');
   const largeZoomOut = document.getElementById('largeZoomOut');
-  let largeGraphScale = 1;
-  let lastLargeGraphCard = null;
 
-  function showLargeHTML(title, html){
-    largeTitle.textContent = title||'カード';
+  let zoomScale = 1;
+
+  function closeLarge(){
+    if(largeModal) largeModal.style.display = 'none';
+    window.cpuWaitFlag = false;
+
+    if(window.postDrawAction === 'babaDiscardPhase'){
+      window.postDrawAction = null;
+    }
+  }
+
+  if(largeClose){
+    largeClose.onclick = closeLarge;
+  }
+
+  if(largeZoomIn){
+    largeZoomIn.onclick = () => {
+      zoomScale *= 1.2;
+      largeBody.style.transform = `scale(${zoomScale})`;
+      largeBody.style.transformOrigin = 'top center';
+    };
+  }
+
+  if(largeZoomOut){
+    largeZoomOut.onclick = () => {
+      zoomScale /= 1.2;
+      largeBody.style.transform = `scale(${zoomScale})`;
+      largeBody.style.transformOrigin = 'top center';
+    };
+  }
+
+  // 外部から呼ぶ関数
+  window.showLargeHTML = function(title, html){
+    if(!largeModal) return;
+    zoomScale = 1;
+    largeBody.style.transform = 'scale(1)';
+    largeTitle.textContent = title || 'カード';
     largeBody.innerHTML = html;
     largeModal.style.display = 'flex';
-    // ensure styles: white background
-    largeModal.querySelector('.modal').style.background = '#fff';
     window.cpuWaitFlag = true;
-  }
-  
-  function closeLargeModal(){
-    largeModal.style.display = 'none';
-    largeBody.innerHTML = '';
-    window.cpuWaitFlag = false;
-    lastLargeGraphCard = null;
+  };
+})();
     
     // --- 【追加・修正】ドロー後の処理 ---
     if(window.postDrawAction === 'babaDiscardPhase' && typeof window.startDiscardPhase === 'function'){
         window.startDiscardPhase();
     }
     // ---------------------------------
-  }
   
   function showLargeGraph(card){
     lastLargeGraphCard = card;
@@ -1635,17 +1679,19 @@ function showMemoryResult(playerCount, cpuCount) {
   };
 
   // expose closeLargeModal for external use
+function closeLargeModal() {
+  const modal = document.getElementById("largeModal");
+  if (modal) modal.style.display = "none";
+}
+
   window.closeLargeModal = closeLargeModal;
 
   console.log('Unified large modal integration active (overrides applied).');
-
-})();
 
 // === 共通：正方形グリッド用スケール取得 ===
 function getSquareUnit(canvas, range=10){
   return Math.min(canvas.width, canvas.height) / (range*2);
 }
-
 
 // --- 神経衰弱 勝敗判定（カード枚数） ---
 function showMemoryResult(playerCount, cpuCount) {
